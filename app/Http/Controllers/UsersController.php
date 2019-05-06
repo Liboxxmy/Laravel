@@ -6,17 +6,26 @@ use Illuminate\Http\Request;
 use App\Http\Requests;
 use App\Models\User;
 use Auth;
-
+use Mail;
 
 class UsersController extends Controller
 {
     public function __construct(){
         $this->middleware('auth',[
-            'expect'=>['show','store','create','index']
+            'except'=>['show','store','create','index','confirmEmail']
         ]);
         $this->middleware('guest',[
             'only'=>['create']
         ]);
+    }
+    public function confirmEmail($token){
+        $user = User::where('activation_token', $token)->firstOrFail();
+        $user->activated = true;
+        $user->activation_token = null;
+        $user->save();
+        Auth::login($user);
+        session()->flash('success', '恭喜你，激活成功！');
+        return redirect()->route('users.show', [$user]);
     }
     public function index(){
         $users=User::paginate(10);
@@ -39,10 +48,26 @@ class UsersController extends Controller
 	       'email'=>$request->email,
 	       'password'=>bcrypt($request->password),
 	    ]);
-        Auth::login($user);
+        $this->sendEmailConfirmationTo($user);
+        session()->flash('success', '验证邮件已发送到你的注册邮箱上，请注意查收。');
+        return redirect('/');
+       /* Auth::login($user);
         session()->flash('success', 'sign up success');
         //var_dump(session('success'));die;
-	    return redirect()->route('users.show',[$user]);
+	    return redirect()->route('users.show',[$user]);*/
+    }
+    protected function sendEmailConfirmationTo($user)
+    {
+        $view = 'emails.confirm';
+        $data = compact('user');
+        $from = 'aufree@yousails.com';
+        $name = 'Aufree';
+        $to = $user->email;
+        $subject = "感谢注册 Sample 应用！请确认你的邮箱。";
+
+        Mail::send($view, $data, function ($message) use ($from, $name, $to, $subject) {
+            $message->from($from, $name)->to($to)->subject($subject);
+        });
     }
     public function edit(User $user){
         $this->authorize('update',$user);

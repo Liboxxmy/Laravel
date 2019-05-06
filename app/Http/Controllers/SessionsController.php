@@ -29,9 +29,14 @@ class SessionsController extends Controller
 
         }*/
         if(Auth::attempt($res,$request->has('remember'))){
-	        session()->flash('success','欢迎回来~');
-            return redirect()->intended(route('users.show',[Auth::user()]));
-	    return redirect()->route('users.show',[Auth::user()]);
+            if(Auth::user()->activated){
+                session()->flash('success','欢迎回来~');
+                return redirect()->intended(route('users.show',[Auth::user()]));
+            }else{
+                Auth::logout();
+                session()->flash('waring','账号未激活，检查邮箱邮件进行激活');
+                return redirect('/');
+            }
         }else{
             session()->flash("danger","error info");
             return redirect()->back();
